@@ -207,6 +207,110 @@ void Server::handleClient(int clientSocket, const std::string& clientName, const
                 }
             }
         } 
+        ///////// handle to send with server
+         else if (receivedMessage.size() > 3 && receivedMessage.substr(0, 3) == "/sv") {
+                size_t spacePos = receivedMessage.find(' ');
+                if (spacePos != std::string::npos) {
+                    std::string privateClientMessage = receivedMessage.substr(spacePos + 1);
+                    std::string clientNameMessage;
+
+                    for (const auto& client : clients) {
+                        if (client.getSocket() == clientSocket) {
+                            clientNameMessage = "\033[1;34m" + client.getName() + "\033[0m";
+                                //std::cout << clientNameMessage << ":" << privateClientMessage << std::endl;
+
+                            }
+                        }
+                    std::cout << clientNameMessage << ":" << privateClientMessage << std::endl;
+
+                    std::string YouLocation = "\033[1;32m A new client want to chat >>\033[0m";
+                    for (const auto& client : clients) {
+                        if (client.getSocket() == clientSocket) {
+                            std::cout << YouLocation << client.getName() << std::endl;
+                             break; // Thoát khỏi vòng lặp khi client đã thoát
+                            }
+                    }
+
+                        
+                    std::string userInput;
+                     bool exitChat = false;
+                    // bool exitChatRequested = false;
+
+                        while (!exitChat) {
+                            fd_set readSet;
+                            FD_ZERO(&readSet);
+                            FD_SET(STDIN_FILENO, &readSet);
+                            FD_SET(clientSocket, &readSet);
+
+                            struct timeval timeout;
+                            timeout.tv_sec = 0;
+                            timeout.tv_usec = 0;
+
+                            int ready = select(std::max(STDIN_FILENO, clientSocket) + 1, &readSet, NULL, NULL, &timeout);
+                            std::string NotificationExitPrivateChatServer = "\033[1;32mYou exited the private chat with SERVER\033[0m";
+                            if (ready > 0) {
+                                if (FD_ISSET(clientSocket, &readSet)) {
+                                    bytesReceived = recv(clientSocket, buffer, 4096, 0);
+                                    if (bytesReceived <= 0) {
+                                        std::cerr << "Client " << clientName << " offline!" << std::endl;
+                                        exitChat = true; // Set exitChat khi client offline
+                                    } else {
+                                        privateClientMessage = std::string(buffer, 0, bytesReceived);
+                                        if (privateClientMessage.compare(0, 4, "exit") == 0) {
+                                            exitChat = true;
+                                            std::cout << "\033[1;32mYou exited the private chat with \033[0m"  <<clientName<< std::endl;
+                                            send(clientSocket, NotificationExitPrivateChatServer.c_str(), NotificationExitPrivateChatServer.size() + 1, 0);
+                                        }
+                                        std::cout << clientNameMessage << ":" << privateClientMessage << std::endl;
+                                    }
+                                }
+
+                                
+                    if (FD_ISSET(STDIN_FILENO, &readSet)) {
+                    std::getline(std::cin, userInput);
+                    if (userInput.compare(0, 4, "exit") == 0 ) {
+                        exitChat = true;
+                        send(clientSocket, NotificationExitPrivateChatServer.c_str(), NotificationExitPrivateChatServer.size() + 1, 0);
+                        std::cout << "\033[1;32mYou exited the private chat with \033[0m" << clientNameMessage << std::endl;
+                    } else {
+                        size_t spacePos1 = userInput.find(' ');
+
+                        if (spacePos1 != std::string::npos) {
+                            std::string firstPart = trim(userInput.substr(0, spacePos1));
+                            std::string secondPart = trim(userInput.substr(spacePos1 + 1));
+
+                            std::string privateServer = "\033[1;31mServer: \033[0m";
+                            std::string messageOfServer = privateServer + secondPart;
+
+                            // Only one client want to chat with server
+                            if (clients.size() == 1) {
+                                auto& client = clients[0];
+                                if (firstPart == client.getName() ) {
+                                    std::cout << "You sent a message to: " << firstPart << std::endl;
+                                    send(client.getSocket(), messageOfServer.c_str(), messageOfServer.size() + 1, 0);
+                                }
+                            } else {
+                                // if have more one client want to chat with server
+                                for (auto& client : clients) {
+                                    if (firstPart == client.getName() ) {
+                                        std::cout << "You sent a message to: " << firstPart << std::endl;
+                                        send(client.getSocket(), messageOfServer.c_str(), messageOfServer.size() + 1, 0);  
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+            }
+            // Sleep to reduce CPU
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        }
+    }
+
+            ///////////// Duc is added 
+        }
+        ///////
         //send file huihu dw
         else if(receivedMessage.substr(0, 9) == "/sendfile") {
             std ::string SendFile ="File is being sent from ";
